@@ -1,0 +1,200 @@
+vini@miles:~$ sudo service ssh start
+vini@miles:~$ sudo service ssh status
+vini@miles:~$ start-all.sh
+vini@miles:~$ jps
+vini@miles:~$ beeline
+beeline> !connect jdbc:hive2:// username password org.apache.hive.jdbc.HiveDriver
+
+0: jdbc:hive2://> show databases;
+OK
++----------------+
+| database_name  |
++----------------+
+| default        |
+| hive_training  |
+| hiveone        |
++----------------+
+
+0: jdbc:hive2://> use hiveone;
+OK
+No rows affected (0.046 seconds)
+
+
+0: jdbc:hive2://> create table customer(cust_id int,first_name varchar(20),last_name varchar(20),age int,profession varchar(20)) row format delimited fields terminated by ',';
+OK
+No rows affected (0.096 seconds)
+
+vini@miles:~$ cd futurense_hadoop-pyspark/
+vini@miles:~/futurense_hadoop-pyspark$ git pull https://github.com/asaravanakumar/futurense_hadoop-pyspark
+
+beeline> load data local inpath '/home/tech/futurense_hadoop-pyspark/labs/dataset/retail/customers.txt' overwrite into table customer;
+beeline> !connect jdbc:hive2:// username password org.apache.hive.jdbc.HiveDriver
+
+0: jdbc:hive2://> select *from customer;
+23/02/19 12:13:09 [f65aeef5-d0bd-46ef-982b-fc3f3bd9aafe main]: WARN metastore.ObjectStore: datanucleus.autoStartMechanismMode is set to unsupported value null . Setting it to value: ignored
+OK
++-------------------+----------------------+---------------------+---------------+-----------------------+
+| customer.cust_id  | customer.first_name  | customer.last_name  | customer.age  |  customer.profession  |
++-------------------+----------------------+---------------------+---------------+-----------------------+
+| 4000001           | Kristina             | Chung               | 55            | Pilot                 |
+| 4000002           | Paige                | Chen                | 74            | Teacher               |
+| 4000003           | Sherri               | Melton              | 34            | Firefighter           |
+| 4000004           | Gretchen             | Hill                | 66            | Computer hardware en  |
+| 4000005           | Karen                | Puckett             | 74            | Lawyer                |
+| 4000006           | Patrick              | Song                | 42            | Veterinarian          |
+| 4000007           | Elsie                | Hamilton            | 43            | Pilot                 |
+| 4000008           | Hazel                | Bender              | 63            | Carpenter             |
+| 4000009           | Malcolm              | Wagner              | 39            | Artist                |
+| 4000010           | Dolores              | McLaughlin          | 60            | Writer                |
++-------------------+----------------------+---------------------+---------------+-----------------------+
+10 rows selected (1.969 seconds)
+
+0: jdbc:hive2://> create table transactions(trans_id int,trans_date date,cust_id int,amount double,category varchar(30),desc varchar(30),city varchar(30),state varchar(30),pymt_mode varchar(20))
+. . . . . . . . > row format delimited fields terminated by ',';
+
+0: jdbc:hive2://> load data local inpath '/home/tech/futurense_hadoop-pyspark/labs/dataset/retail/transactions.txt' overwrite into table transactions;
+
+
+0: jdbc:hive2://> select *from transactions;
+23/02/19 12:21:09 [f65aeef5-d0bd-46ef-982b-fc3f3bd9aafe main]: WARN metastore.ObjectStore: datanucleus.autoStartMechanismMode is set to unsupported value null . Setting it to value: ignored
+OK
+
+
+
+1) No of transactions by customer
+
+
+0: jdbc:hive2://> select count(transactions.cust_id),customer.cust_id from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by customer.cust_id;
+
+
+Total MapReduce CPU Time Spent: 5 seconds 240 msec
+OK
++------+-------------------+
+| _c0  | customer.cust_id  |
++------+-------------------+
+| 8    | 4000001           |
+| 6    | 4000002           |
+| 3    | 4000003           |
+| 5    | 4000004           |
+| 5    | 4000005           |
+| 5    | 4000006           |
+| 6    | 4000007           |
+| 10   | 4000008           |
+| 6    | 4000009           |
+| 6    | 4000010           |
++------+-------------------+
+10 rows selected (24.312 seconds)
+
+
+
+2) Total transaction amount by customer
+
+0: jdbc:hive2://> select sum(transactions.amount),customer.cust_id from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by customer.cust_id;
+
+
+OK
++---------------------+-------------------+
+|         _c0         | customer.cust_id  |
++---------------------+-------------------+
+| 651.05              | 4000001           |
+| 706.97              | 4000002           |
+| 527.5899999999999   | 4000003           |
+| 337.06              | 4000004           |
+| 325.15              | 4000005           |
+| 539.38              | 4000006           |
+| 699.5500000000001   | 4000007           |
+| 859.42              | 4000008           |
+| 457.83              | 4000009           |
+| 447.09000000000003  | 4000010           |
++---------------------+-------------------+
+10 rows selected (21.987 seconds)
+
+
+3) Get top 3 customers by transaction amount
+
+
+0: jdbc:hive2://> select sum(transactions.amount),customer.cust_id from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by customer.cust_id order by 1 desc limit 3;
+
+
+OK
++--------------------+-------------------+
+|        _c0         | customer.cust_id  |
++--------------------+-------------------+
+| 859.42             | 4000008           |
+| 706.97             | 4000002           |
+| 699.5500000000001  | 4000007           |
++--------------------+-------------------+
+3 rows selected (40.201 seconds)
+
+
+4) No of transactions by customer and mode of payment
+
+0: jdbc:hive2://> select sum(transactions.amount),customer.cust_id,transactions.pymt_mode from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by customer.cust_id,transactions.pymt_mode order by 1;
+
+OK
++---------------------+-------------------+-------------------------+
+|         _c0         | customer.cust_id  | transactions.pymt_mode  |
++---------------------+-------------------+-------------------------+
+| 21.43               | 4000001           | cash                    |
+| 32.65               | 4000002           | cash                    |
+| 44.82               | 4000005           | cash                    |
+| 143.43              | 4000004           | cash                    |
+| 193.63              | 4000004           | credit                  |
+| 280.33              | 4000005           | credit                  |
+| 447.09000000000003  | 4000010           | credit                  |
+| 457.83              | 4000009           | credit                  |
+| 527.5899999999999   | 4000003           | credit                  |
+| 539.38              | 4000006           | credit                  |
+| 629.62              | 4000001           | credit                  |
+| 674.32              | 4000002           | credit                  |
+| 699.5500000000001   | 4000007           | credit                  |
+| 859.42              | 4000008           | credit                  |
++---------------------+-------------------+-------------------------+
+14 rows selected (40.796 seconds)
+
+
+5) Get top 3 cities which has more transactions
+
+0: jdbc:hive2://> select count(transactions.cust_id),transactions.city from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by transactions.city order by 1 desc limit 3;
+
++------+--------------------+
+| _c0  | transactions.city  |
++------+--------------------+
+| 3    | Honolulu           |
+| 3    | Columbus           |
+| 2    | Everett            |
++------+--------------------+
+
+6) Get month wise highest transaction
+
+0: jdbc:hive2://> select count(transactions.cust_id) count,substring(transactions.trans_date,1,2) month from transactions join customer
+. . . . . . . . > on customer.cust_id = transactions.cust_id group by substring(transactions.trans_date,1,2) order by 2 desc;
+
+OK
++--------+--------+
+| count  | month  |
++--------+--------+
+| 4      | 12     |
+| 5      | 11     |
+| 10     | 10     |
+| 4      | 09     |
+| 2      | 08     |
+| 2      | 07     |
+| 10     | 06     |
+| 8      | 05     |
+| 4      | 04     |
+| 3      | 03     |
+| 6      | 02     |
+| 2      | 01     |
++--------+--------+
+12 rows selected (41.134 seconds)
+
+
+
+
+
